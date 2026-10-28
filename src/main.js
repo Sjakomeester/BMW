@@ -217,6 +217,11 @@ function addHistory(e){
     return supabase.from("history").insert({user_id:uid(),name:e.name,date:e.date,km:e.km==null?null:e.km,approx:false}).then(chk).then(loadAll);
   });
 }
+function updateHistory(id,e){
+  return enqueue(function(){
+    return supabase.from("history").update({name:e.name,date:e.date,km:e.km==null?null:e.km,approx:false}).eq("id",id).then(chk).then(loadAll);
+  });
+}
 function delHistory(id){
   return enqueue(function(){ return supabase.from("history").delete().eq("id",id).then(chk).then(loadAll); });
 }
@@ -385,8 +390,15 @@ function viewLogboek(){
   else {
     h+='<div class="scroll" style="margin-top:8px"><table class="partlist"><thead><tr><th>Datum</th><th class="n">Km</th><th>Werkzaamheid</th><th></th></tr></thead><tbody>';
     hs.forEach(function(e){
+      if(state.editHist===e.id){
+        h+='<tr class="editrow"><td><input id="he-date" type="date" value="'+esc(e.date)+'" max="'+todayIso()+'" required aria-label="Datum"></td>'+
+          '<td class="n"><input id="he-km" type="number" min="0" step="1" value="'+(e.km!=null?e.km:"")+'" aria-label="Kilometerstand" style="width:90px"></td>'+
+          '<td><input id="he-name" type="text" value="'+esc(e.name)+'" aria-label="Werkzaamheid" style="width:100%;min-width:140px"></td>'+
+          '<td class="n"><button class="btn small" data-act="hedit-save" data-id="'+e.id+'">Opslaan</button> <button class="btn small ghost" data-act="hedit-cancel">Annuleren</button></td></tr>';
+        return;
+      }
       var d = e.approx ? parse(e.date).toLocaleDateString("nl-NL",{month:"short",year:"numeric"}) : fmtDate(e.date);
-      h+='<tr><td>'+d+'</td><td class="n">'+(e.km!=null&&e.km!==""?fmtKm(e.km):"–")+'</td><td>'+esc(e.name)+'</td><td class="n">'+
+      h+='<tr><td>'+d+'</td><td class="n">'+(e.km!=null&&e.km!==""?fmtKm(e.km):"–")+'</td><td>'+esc(e.name)+'</td><td class="n"><button class="btn small ghost" data-act="hedit" data-id="'+e.id+'">Wijzig</button> '+
         (state.confirmDel==="h:"+e.id?'<button class="btn small danger" data-act="hdel-yes" data-id="'+e.id+'">Zeker?</button> <button class="btn small ghost" data-act="del-no">Nee</button>':'<button class="btn small ghost" data-act="hdel" data-id="'+e.id+'">Verwijder</button>')+'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -430,6 +442,14 @@ document.addEventListener("click",function(ev){
   }
   else if(act==="undo"){ undoDone(id).then(function(){ toast("Teruggedraaid."); }); }
   else if(act==="del"){ state.confirmDel=id; render(); }
+  else if(act==="hedit"){ document.querySelectorAll('[id^="he-"]').forEach(function(el){ el.remove(); }); state.confirmDel=null; state.editHist=id; render(); }
+  else if(act==="hedit-cancel"){ state.editHist=null; render(); }
+  else if(act==="hedit-save"){
+    var en=document.getElementById("he-name").value.trim(), ed=document.getElementById("he-date").value, ek=document.getElementById("he-km").value;
+    if(!en||!ed){ toast("Vul werkzaamheid en datum in."); return; }
+    var ue={name:en,date:ed}; if(ek!=="") ue.km=parseInt(ek,10);
+    state.editHist=null; updateHistory(id,ue).then(function(){ toast("Gewijzigd."); });
+  }
   else if(act==="hdel"){ state.confirmDel="h:"+id; render(); }
   else if(act==="hdel-yes"){ state.confirmDel=null; delHistory(id).then(function(){ toast("Verwijderd."); }); }
   else if(act==="del-no"){ state.confirmDel=null; render(); }
