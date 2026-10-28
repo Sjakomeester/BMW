@@ -57,3 +57,34 @@ create policy "eigen regels" on public.km_entries for all to authenticated using
 create policy "eigen regels" on public.history    for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "eigen regels" on public.done       for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "eigen regels" on public.prices     for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+
+-- Bijlagen bij onderhoudsregels (migratie "bijlagen")
+create table public.attachments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  history_id uuid not null references public.history(id) on delete cascade,
+  name text not null,
+  path text not null,
+  size bigint,
+  mime text,
+  created_at timestamptz not null default now()
+);
+create index attachments_history_idx on public.attachments(history_id);
+create index attachments_user_idx on public.attachments(user_id);
+alter table public.attachments enable row level security;
+create policy "eigen regels" on public.attachments for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('bijlagen','bijlagen',false, 10485760,
+  array['application/pdf','image/jpeg','image/png','image/webp','image/heic','text/plain',
+        'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+on conflict (id) do nothing;
+create policy "bijlagen eigen map lezen" on storage.objects for select to authenticated
+  using (bucket_id='bijlagen' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy "bijlagen eigen map uploaden" on storage.objects for insert to authenticated
+  with check (bucket_id='bijlagen' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy "bijlagen eigen map verwijderen" on storage.objects for delete to authenticated
+  using (bucket_id='bijlagen' and (storage.foldername(name))[1] = (select auth.uid())::text);

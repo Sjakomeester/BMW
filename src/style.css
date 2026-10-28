@@ -114,3 +114,10 @@ input[type=number]{font-variant-numeric:tabular-nums}
   .partlist td,.partlist th{padding:6px 4px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.attbox{display:flex;flex-direction:column;gap:8px;padding:6px 0 4px}
+.attlist{display:flex;flex-direction:column;gap:6px}
+.att{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent,inherit);text-decoration:underline;cursor:pointer;font:inherit;text-align:left;word-break:break-all}
+.filebtn{align-self:flex-start;cursor:pointer}
+.attrow td{border-top:0!important}

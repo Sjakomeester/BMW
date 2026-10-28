@@ -54,7 +54,7 @@ var ITEMS = [
 ];
 
 /* ---------- Staat ---------- */
-var state = {entries:[], history:[], done:{}, prices:{}, tab:"overzicht", openItem:null, doneForm:null,
+var state = {attachments:{}, entries:[], history:[], done:{}, prices:{}, tab:"overzicht", openItem:null, doneForm:null,
   horizon:5000, mode:"diy", confirmDel:null, user:null, loaded:false};
 
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
@@ -178,13 +178,16 @@ function loadAll(){
     supabase.from("km_entries").select("id,km,date,tread,note"),
     supabase.from("history").select("id,name,date,km,approx,item"),
     supabase.from("done").select("item,km,date,next_date"),
-    supabase.from("prices").select("key,value")
+    supabase.from("prices").select("key,value"),
+    supabase.from("attachments").select("id,history_id,name,path,size,created_at")
   ]).then(function(r){
     r.forEach(chk);
     state.entries=r[0].data.map(function(x){ var o={id:x.id,km:x.km,date:x.date}; if(x.tread!=null) o.tread=Number(x.tread); if(x.note) o.note=x.note; return o; });
     state.history=r[1].data.map(function(x){ return {id:x.id,name:x.name,date:x.date,km:x.km,approx:!!x.approx,item:x.item}; });
     var m={}; r[2].data.forEach(function(x){ var o={km:x.km,date:x.date}; if(x.next_date) o.nextDate=x.next_date; m[x.item]=o; }); state.done=m;
     var pr={}; r[3].data.forEach(function(x){ pr[x.key]=Number(x.value); }); state.prices=pr;
+    var am={}; r[4].data.forEach(function(x){ (am[x.history_id]=am[x.history_id]||[]).push(x); });
+    Object.keys(am).forEach(function(k){ am[k].sort(function(a,b){ return a.created_at<b.created_at?-1:1; }); }); state.attachments=am;
     state.loaded=true; render();
   });
 }
@@ -223,7 +226,50 @@ function updateHistory(id,e){
   });
 }
 function delHistory(id){
-  return enqueue(function(){ return supabase.from("history").delete().eq("id",id).then(chk).then(loadAll); });
+  return enqueue(function(){
+    var paths=(state.attachments[id]||[]).map(function(a){ return a.path; });
+    var rm = paths.length ? supabase.storage.from("bijlagen").remove(paths).then(chk) : Promise.resolve();
+    return rm.then(function(){ return supabase.from("history").delete().eq("id",id); }).then(chk).then(loadAll);
+  });
+}
+var MAX_BYTES=10*1024*1024;
+function fmtSize(n){ return n==null?"":(n<1048576?Math.max(1,Math.round(n/1024))+" kB":(n/1048576).toFixed(1).replace(".",",")+" MB"); }
+function addAttachments(hid,files){
+  return enqueue(function(){
+    var list=Array.prototype.slice.call(files), ok=0, bad=[];
+    return list.reduce(function(p,f){
+      return p.then(function(){
+        if(f.size>MAX_BYTES){ bad.push(f.name+" (groter dan 10 MB)"); return; }
+        var safe=f.name.replace(/[^A-Za-z0-9._-]+/g,"_").slice(-80);
+        var path=uid()+"/"+hid+"/"+Date.now()+"-"+safe;
+        return supabase.storage.from("bijlagen").upload(path,f,{contentType:f.type||undefined}).then(function(r){
+          if(r.error){ bad.push(f.name+" ("+r.error.message+")"); return; }
+          return supabase.from("attachments").insert({user_id:uid(),history_id:hid,name:f.name,path:path,size:f.size,mime:f.type||null}).then(function(r2){
+            if(r2.error){ supabase.storage.from("bijlagen").remove([path]); bad.push(f.name); } else ok++;
+          });
+        });
+      });
+    },Promise.resolve()).then(loadAll).then(function(){
+      toast(ok?(ok+" bijlage"+(ok>1?"n":"")+" toegevoegd."+(bad.length?" Mislukt: "+bad.join(", "):"")):"Niet gelukt: "+bad.join(", "));
+    });
+  });
+}
+function delAttachment(id){
+  return enqueue(function(){
+    var a; Object.keys(state.attachments).forEach(function(k){ state.attachments[k].forEach(function(x){ if(x.id===id) a=x; }); });
+    if(!a) return;
+    return supabase.storage.from("bijlagen").remove([a.path]).then(chk)
+      .then(function(){ return supabase.from("attachments").delete().eq("id",id); }).then(chk).then(loadAll);
+  });
+}
+function openAttachment(id){
+  var a; Object.keys(state.attachments).forEach(function(k){ state.attachments[k].forEach(function(x){ if(x.id===id) a=x; }); });
+  if(!a) return;
+  var w=window.open("","_blank");
+  supabase.storage.from("bijlagen").createSignedUrl(a.path,120).then(function(r){
+    if(r.error||!r.data){ if(w) w.close(); toast("Openen mislukt."); return; }
+    if(w) w.location.href=r.data.signedUrl; else window.location.href=r.data.signedUrl;
+  });
 }
 function savePrice(key,val){
   return enqueue(function(){
@@ -398,8 +444,18 @@ function viewLogboek(){
         return;
       }
       var d = e.approx ? parse(e.date).toLocaleDateString("nl-NL",{month:"short",year:"numeric"}) : fmtDate(e.date);
-      h+='<tr><td>'+d+'</td><td class="n">'+(e.km!=null&&e.km!==""?fmtKm(e.km):"–")+'</td><td>'+esc(e.name)+'</td><td class="n"><button class="btn small ghost" data-act="hedit" data-id="'+e.id+'">Wijzig</button> '+
+      h+='<tr><td>'+d+'</td><td class="n">'+(e.km!=null&&e.km!==""?fmtKm(e.km):"–")+'</td><td>'+esc(e.name)+'</td><td class="n"><button class="btn small ghost" data-act="att-toggle" data-id="'+e.id+'" aria-expanded="'+(state.openAtt===e.id)+'" aria-label="Bijlagen">📎 '+((state.attachments[e.id]||[]).length||"")+'</button> <button class="btn small ghost" data-act="hedit" data-id="'+e.id+'">Wijzig</button> '+
         (state.confirmDel==="h:"+e.id?'<button class="btn small danger" data-act="hdel-yes" data-id="'+e.id+'">Zeker?</button> <button class="btn small ghost" data-act="del-no">Nee</button>':'<button class="btn small ghost" data-act="hdel" data-id="'+e.id+'">Verwijder</button>')+'</td></tr>';
+      if(state.openAtt===e.id){
+        var al=state.attachments[e.id]||[];
+        h+='<tr class="attrow"><td colspan="4"><div class="attbox"><div class="attlist">'+
+          (al.length?al.map(function(a){
+            return '<div class="att"><button class="linkbtn" data-act="att-open" data-id="'+a.id+'">'+esc(a.name)+'</button><span class="note">'+fmtSize(a.size)+'</span>'+
+              (state.confirmDel==="a:"+a.id?'<button class="btn small danger" data-act="att-del-yes" data-id="'+a.id+'">Zeker?</button> <button class="btn small ghost" data-act="del-no">Nee</button>':'<button class="btn small ghost" data-act="att-del" data-id="'+a.id+'">Verwijder</button>')+'</div>';
+          }).join(""):'<div class="note">Nog geen bijlagen.</div>')+
+          '</div><label class="btn small filebtn">Bijlage toevoegen<input id="att-file" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.txt,.doc,.docx,.xls,.xlsx,application/pdf,image/*" data-hid="'+e.id+'" hidden></label>'+
+          '<div class="note">PDF, foto, Word, Excel of tekst, maximaal 10 MB per bestand.</div></div></td></tr>';
+      }
     });
     h+='</tbody></table></div>';
   }
@@ -418,7 +474,7 @@ function render(){
   var seedPanel = (state.loaded && !state.entries.length && !state.history.length) ?
     '<section class="panel"><h2>Startgegevens importeren</h2><p class="note" style="margin:6px 0 12px">Je account is nog leeg. Importeer je kilometerstand van 27 oktober 2026 (133.890 km) en de 18 onderhoudsregels uit je Excel. Dit kan één keer.</p><button class="btn" data-act="seed">Startgegevens importeren</button></section>' : "";
   v.innerHTML = seedPanel + (state.tab==="overzicht"?viewOverzicht():state.tab==="onderhoud"?viewOnderhoud():state.tab==="inkopen"?viewInkopen():viewLogboek());
-  Object.keys(keep).forEach(function(id){ var el=document.getElementById(id); if(el && el.tagName!=="SELECT" && !/^p-/.test(id) && keep[id]!=="") el.value=keep[id]; });
+  Object.keys(keep).forEach(function(id){ var el=document.getElementById(id); if(el && el.tagName!=="SELECT" && !/^(p|att)-/.test(id) && keep[id]!=="") el.value=keep[id]; });
   if(active){ var ne=document.getElementById(active); if(ne){ ne.focus(); try{ if(selS!=null) ne.setSelectionRange(selS,selE); }catch(e){} } }
   document.getElementById("who").textContent = state.user ? state.user.email : "";
 }
@@ -450,10 +506,18 @@ document.addEventListener("click",function(ev){
     var ue={name:en,date:ed}; if(ek!=="") ue.km=parseInt(ek,10);
     state.editHist=null; updateHistory(id,ue).then(function(){ toast("Gewijzigd."); });
   }
+  else if(act==="att-toggle"){ state.openAtt=state.openAtt===id?null:id; state.confirmDel=null; render(); }
+  else if(act==="att-open"){ openAttachment(id); }
+  else if(act==="att-del"){ state.confirmDel="a:"+id; render(); }
+  else if(act==="att-del-yes"){ state.confirmDel=null; delAttachment(id).then(function(){ toast("Bijlage verwijderd."); }); }
   else if(act==="hdel"){ state.confirmDel="h:"+id; render(); }
   else if(act==="hdel-yes"){ state.confirmDel=null; delHistory(id).then(function(){ toast("Verwijderd."); }); }
   else if(act==="del-no"){ state.confirmDel=null; render(); }
   else if(act==="del-yes"){ state.confirmDel=null; delEntry(id).then(function(){ toast("Verwijderd."); }); }
+});
+document.addEventListener("change",function(ev){
+  var t=ev.target;
+  if(t && t.id==="att-file" && t.files && t.files.length){ var hid=t.getAttribute("data-hid"), fs=Array.prototype.slice.call(t.files); t.value=""; addAttachments(hid,fs); }
 });
 document.addEventListener("submit",function(ev){
   if(ev.target.id==="hist-form"){
