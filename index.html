@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b6676">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+  <title>X3M Onderhoud</title>
+</head>
+<body>
+  <div id="config-error" class="wrap" hidden>
+    <section class="panel">
+      <h2>Supabase is nog niet ingesteld</h2>
+      <p class="note">Zet VITE_SUPABASE_URL en VITE_SUPABASE_ANON_KEY in je omgevingsvariabelen (Vercel) of in een .env-bestand (lokaal), en laad de pagina opnieuw. Zie README.md.</p>
+    </section>
+  </div>
+
+  <div id="login" class="wrap" hidden>
+    <section class="panel login">
+      <h1 style="font-size:26px">X3M Onderhoud</h1>
+      <form id="login-form">
+        <label class="f">E-mailadres<input id="l-email" type="email" autocomplete="username" required></label>
+        <label class="f">Wachtwoord<input id="l-pass" type="password" autocomplete="current-password" required></label>
+        <button class="btn" id="login-btn" type="submit">Inloggen</button>
+        <div class="err" id="login-err" role="alert"></div>
+      </form>
+    </section>
+  </div>
+
+  <div id="app" class="wrap" hidden>
+    <div class="top">
+      <div><h1>X3M Onderhoud</h1><small>Competition · S58 · HGJ-13-T</small></div>
+      <div class="sync"><span id="who"></span><button class="btn small ghost" id="logout" type="button">Uitloggen</button></div>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="view" class="stack"></div>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
