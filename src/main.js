@@ -410,8 +410,10 @@ function viewInkopen(){
 }
 
 function viewLogboek(){
-  var es=sortedEntries(), r=rate();
-  var h='<section class="panel"><h2>Logboek kilometerstand</h2><p class="note" style="margin:6px 0 10px">Gemiddeld ±'+Math.round(r)+' km per dag ('+fmtKm(r*365)+' km per jaar), berekend over de laatste drie maanden.</p>';
+  var es=sortedEntries(), r=rate(), cu=current();
+  var h='<section class="panel printhead"><div class="ph-title"><h2>Logboek BMW X3M Competition (F97)</h2><div class="note">Kenteken HGJ-13-T · afgedrukt op '+fmtDate(todayIso())+(cu&&cu.km?' · kilometerstand '+fmtKm(cu.km)+' km':"")+'</div></div>'+
+    '<button class="btn small" data-act="print" type="button">Exporteer als PDF / afdrukken</button></section>';
+  h+='<section class="panel"><h2>Logboek kilometerstand</h2><p class="note" style="margin:6px 0 10px">Gemiddeld ±'+Math.round(r)+' km per dag ('+fmtKm(r*365)+' km per jaar), berekend over de laatste drie maanden.</p>';
   if(!es.length){ h+='<div class="empty">Nog geen standen opgeslagen. Voer op het tabblad Overzicht je eerste stand in.</div>'; }
   else {
     h+='<div class="scroll"><table class="partlist"><thead><tr><th>Datum</th><th class="n">Km</th><th class="n">Sinds vorige</th><th class="n">Profiel</th><th>Notitie</th><th></th></tr></thead><tbody>';
@@ -444,7 +446,7 @@ function viewLogboek(){
         return;
       }
       var d = e.approx ? parse(e.date).toLocaleDateString("nl-NL",{month:"short",year:"numeric"}) : fmtDate(e.date);
-      h+='<tr><td>'+d+'</td><td class="n">'+(e.km!=null&&e.km!==""?fmtKm(e.km):"–")+'</td><td>'+esc(e.name)+'</td><td class="n"><button class="btn small ghost" data-act="att-toggle" data-id="'+e.id+'" aria-expanded="'+(state.openAtt===e.id)+'" aria-label="Bijlagen">📎 '+((state.attachments[e.id]||[]).length||"")+'</button> <button class="btn small ghost" data-act="hedit" data-id="'+e.id+'">Wijzig</button> '+
+      h+='<tr><td>'+d+'</td><td class="n">'+(e.km!=null&&e.km!==""?fmtKm(e.km):"–")+'</td><td>'+esc(e.name)+((state.attachments[e.id]||[]).length?'<span class="printonly note"> · Bijlagen: '+(state.attachments[e.id]).map(function(a){return esc(a.name);}).join(", ")+'</span>':"")+'</td><td class="n"><button class="btn small ghost" data-act="att-toggle" data-id="'+e.id+'" aria-expanded="'+(state.openAtt===e.id)+'" aria-label="Bijlagen">📎 '+((state.attachments[e.id]||[]).length||"")+'</button> <button class="btn small ghost" data-act="hedit" data-id="'+e.id+'">Wijzig</button> '+
         (state.confirmDel==="h:"+e.id?'<button class="btn small danger" data-act="hdel-yes" data-id="'+e.id+'">Zeker?</button> <button class="btn small ghost" data-act="del-no">Nee</button>':'<button class="btn small ghost" data-act="hdel" data-id="'+e.id+'">Verwijder</button>')+'</td></tr>';
       if(state.openAtt===e.id){
         var al=state.attachments[e.id]||[];
@@ -505,6 +507,11 @@ document.addEventListener("click",function(ev){
     if(!en||!ed){ toast("Vul werkzaamheid en datum in."); return; }
     var ue={name:en,date:ed}; if(ek!=="") ue.km=parseInt(ek,10);
     state.editHist=null; updateHistory(id,ue).then(function(){ toast("Gewijzigd."); });
+  }
+  else if(act==="print"){
+    var old=document.title; document.title="Logboek X3M HGJ-13-T "+todayIso();
+    window.addEventListener("afterprint",function f(){ document.title=old; window.removeEventListener("afterprint",f); });
+    window.print();
   }
   else if(act==="att-toggle"){ state.openAtt=state.openAtt===id?null:id; state.confirmDel=null; render(); }
   else if(act==="att-open"){ openAttachment(id); }

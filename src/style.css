@@ -121,3 +121,22 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent,inherit);text-decoration:underline;cursor:pointer;font:inherit;text-align:left;word-break:break-all}
 .filebtn{align-self:flex-start;cursor:pointer}
 .attrow td{border-top:0!important}
+
+.printhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.printonly{display:none}
+@media print{
+  @page{margin:14mm}
+  html,body{background:#fff!important;color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .top,.tabs,.toast,.inline-form,form,button,.btn,.attrow,.empty .btn,#config-error,#login{display:none!important}
+  .printhead button{display:none!important}
+  .printonly{display:inline!important}
+  .wrap{max-width:none!important;padding:0!important}
+  .panel{box-shadow:none!important;border:0!important;background:#fff!important;padding:0 0 10mm!important;break-inside:auto}
+  .printhead{display:block;border-bottom:2px solid #000;margin-bottom:6mm;padding-bottom:3mm!important}
+  .printhead .note,.note{color:#333!important}
+  .scroll{overflow:visible!important}
+  .partlist{font-size:11pt}
+  .partlist tr{break-inside:avoid}
+  .partlist td,.partlist th{border-top:1px solid #999!important;color:#000!important}
+  .partlist th:last-child,.partlist td:last-child{display:none}
+}
