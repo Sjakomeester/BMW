@@ -9,7 +9,7 @@ import "./style.css";
 /* ---------- Basisgegevens uit het onderhoudsschema ---------- */
 var BASE = {km:133890, date:"2026-10-27"};
 var DEFAULT_RATE = 25000/365;           // km per dag volgens opgave
-var WARRANTY_END = "2026-11-27";
+var WARRANTY_END = "2026-12-24";
 var SRC_E = "schatting", SRC_S = "jouw overzicht", SRC_O = "offerte";
 
 var ITEMS = [
@@ -50,7 +50,7 @@ var ITEMS = [
   note:"Elke 4 jaar of ±64.000 km. De laatste vervanging is niet bekend. Zoek hem op in het serviceboek."},
  {id:"downpipe", name:"Downpipe met sportkat + Stage 2", cat:"Tuning", dueDate:"2027-03-01", soonDays:45, diy:false, labour:0,
   parts:[{n:"Downpipe met sportkat (E-keur of TÜV)", q:1, p:null, s:SRC_E},{n:"Stage 2-software", q:1, p:null, s:SRC_E},{n:"Montage", q:1, p:null, s:SRC_E}],
-  note:"Pas na 27 november 2026 (garantie) en na de APK van 25 februari 2027. Vul de prijzen in zodra je een offerte hebt. Meld het bij je verzekeraar."}
+  note:"Pas na 24 december 2026 (garantie) en na de APK van 25 februari 2027. Vul de prijzen in zodra je een offerte hebt. Meld het bij je verzekeraar."}
 ];
 
 /* ---------- Staat ---------- */
